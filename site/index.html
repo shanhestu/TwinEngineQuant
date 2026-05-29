@@ -463,12 +463,16 @@
         }
 
         async function tryFetchJson(path) {
-            try {
-                const resp = await fetch(path, { cache: 'no-store' });
-                if (!resp.ok) return null;
-                return await resp.json();
-            } catch (e) {
-                return null;
+    try {
+        const resp = await fetch(path, { cache: 'no-store' });
+        if (!resp.ok) return null;
+
+        const raw = await resp.text();
+        const normalized = raw.replace(/^\uFEFF/, '').trim();
+        return JSON.parse(normalized);
+    } catch (e) {
+        console.warn('JSON load failed:', path, e);
+        return null;
             }
         }
 
