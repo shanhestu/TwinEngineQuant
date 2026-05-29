@@ -1,0 +1,1511 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZENCE QUANT 6.5 | Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', 'PingFang SC', sans-serif; background-color: #020617; -webkit-tap-highlight-color: transparent; }
+        .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(30, 41, 59, 0.6); }
+        
+        .skeleton {
+            background: linear-gradient(90deg, rgba(30, 41, 59, 0.3) 25%, rgba(51, 65, 85, 0.5) 50%, rgba(30, 41, 59, 0.3) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+        @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        
+        @keyframes blink-red { 0%, 100% { background-color: rgba(239, 68, 68, 0.3); } 50% { background-color: rgba(239, 68, 68, 0.5); } }
+        .blink-danger { animation: blink-red 0.6s infinite; }
+        
+        @keyframes pulse-yellow { 0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0); } }
+        .pulse-warning { animation: pulse-yellow 1s infinite; }
+        
+        @keyframes blink-orange { 0%, 100% { color: #f97316; } 50% { color: #fbbf24; } }
+        .blink-earnings { animation: blink-orange 0.8s infinite; }
+        
+        @keyframes blink-amber { 0%, 100% { background-color: rgba(234, 179, 8, 0.2); } 50% { background-color: rgba(234, 179, 8, 0.4); } }
+        .blink-sector { animation: blink-amber 1s infinite; }
+        
+        .tooltip { position: fixed; z-index: 100; max-width: 300px; transform: translateX(-110%); transition: opacity 0.2s; }
+        .tooltip.hidden { opacity: 0; pointer-events: none; }
+        .tooltip.show { opacity: 1; }
+        
+        .btn-signal { white-space: nowrap; min-width: 50px; }
+        
+        .news-item { transition: all 0.3s; padding: 8px; border-radius: 8px; }
+        .news-item:hover { background: rgba(59, 130, 246, 0.1); }
+        .news-highlight { color: #fbbf24; font-weight: bold; }
+        
+        /* News Sidebar Modal */
+        #news-sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 380px;
+            max-width: 90vw;
+            height: 100vh;
+            z-index: 200;
+            transition: right 0.3s ease;
+        }
+        #news-sidebar.open { right: 0; }
+        #news-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 199;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #news-overlay.open { opacity: 1; pointer-events: auto; }
+        .macro-card-active { border-color: rgba(59, 130, 246, 0.8) !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+    </style>
+</head>
+<body class="text-slate-200 antialiased">
+
+    <!-- 楠ㄦ灦灞忓姞杞借繃娓?-->
+    <div id="skeleton-screen" class="fixed inset-0 z-50 bg-slate-950 p-4 md:p-10">
+        <div class="animate-pulse space-y-6">
+            <div class="h-8 bg-slate-800 rounded w-1/4"></div>
+            <div class="flex gap-4 overflow-x-auto">
+                <div class="h-24 bg-slate-800 rounded-2xl min-w-[180px] flex-1"></div>
+                <div class="h-24 bg-slate-800 rounded-2xl min-w-[180px] flex-1"></div>
+                <div class="h-24 bg-slate-800 rounded-2xl min-w-[180px] flex-1"></div>
+            </div>
+            <div class="h-64 bg-slate-800 rounded-2xl"></div>
+        </div>
+        <p class="text-center text-slate-500 mt-8 text-sm">姝ｅ湪鎵撻€氫簯绔璐︽暟鎹摼璺?..</p>
+    </div>
+
+    <!-- 閬僵涓庢柊闂讳晶杈规爮 -->
+    <div id="news-overlay" onclick="closeNewsSidebar()"></div>
+    <div id="news-sidebar" class="bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="news-sidebar-title" class="text-sm font-black text-slate-300 uppercase tracking-wider">News</h3>
+            <button onclick="closeNewsSidebar()" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="news-sidebar-content" class="space-y-3">
+            <p class="text-xs text-slate-500 italic">姝ｅ湪璋冨彇鍏ㄧ悆璧勮...</p>
+        </div>
+    </div>
+
+    <!-- 涓荤粓绔鍣?-->
+    <div id="app" class="min-h-screen p-3 md:p-6">
+        
+        <!-- 椤堕儴涓绘爣棰樺強鐘舵€佹爮 -->
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <h1 class="text-lg md:text-2xl font-black text-slate-300 tracking-wider">ZENCE QUANT 6.5</h1>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+                <span id="live-clock" class="font-mono"></span>
+                <span id="user-status" class="hidden md:inline">| UID:</span>
+                <button onclick="clearPortfolio()" class="px-2 py-1 bg-rose-600/30 hover:bg-rose-600/50 text-rose-400 rounded-lg text-[10px] font-bold">Clear</button>
+            </div>
+        </div>
+
+        <!-- 琛屼笟楂橀泦涓害绾㈣壊璀︽垝 Banner -->
+        <div id="sector-alert" class="hidden mb-4 p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl blink-sector">
+            <div class="flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
+                <p class="text-sm text-amber-300 font-bold" id="sector-alert-text">Sector Concentration Warning: Semiconductors > 60%</p>
+            </div>
+        </div>
+
+        <!-- 瀹忚浠〃鐩樺崱鐗囷紙鏀寔鐐瑰嚮鍒囨崲鎶樼嚎澶у浘锛?-->
+        <div class="flex gap-3 mb-6 overflow-x-auto pb-3">
+            <div id="card-vix" class="glass-card px-4 md:px-6 py-3 rounded-xl flex items-center gap-3 min-w-[150px] cursor-pointer hover:border-rose-500/50 transition-all hover:shadow-lg hover:shadow-rose-500/10" onclick="switchChartView('vix')">
+                <div class="p-2 bg-rose-500/10 text-rose-500 rounded-lg"><i data-lucide="flame" class="w-4 h-4"></i></div>
+                <div>
+                    <p class="text-[8px] text-slate-500 uppercase">VIX</p>
+                    <p id="vix-val" class="font-mono font-bold text-lg text-rose-400">--</p>
+                </div>
+            </div>
+            <div id="card-us10y" class="glass-card px-4 md:px-6 py-3 rounded-xl flex items-center gap-3 min-w-[150px] cursor-pointer hover:border-blue-500/50 transition-all hover:shadow-lg hover:shadow-blue-500/10" onclick="switchChartView('us10y')">
+                <div class="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+                <div>
+                    <p class="text-[8px] text-slate-500 uppercase">US 10Y</p>
+                    <p id="us10y-val" class="font-mono font-bold text-lg text-blue-400">--%</p>
+                </div>
+            </div>
+            <div id="card-spy" class="glass-card px-4 md:px-6 py-3 rounded-xl flex items-center gap-3 min-w-[150px] cursor-pointer hover:border-emerald-500/50 transition-all hover:shadow-lg hover:shadow-emerald-500/10" onclick="switchChartView('spy')">
+                <div class="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg"><i data-lucide="activity" class="w-4 h-4"></i></div>
+                <div>
+                    <p class="text-[8px] text-slate-500 uppercase">SPY</p>
+                    <p id="spy-val" class="font-mono font-bold text-lg text-emerald-400">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 鍘嗗彶澧為暱鎶樼嚎涓庢櫤鑴戝喅绛栧崱鐗?-->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+            <div class="lg:col-span-3 glass-card rounded-2xl md:rounded-[2rem] p-4 md:p-6 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h3 id="chart-title" class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Portfolio Performance</h3>
+                        <p id="chart-subtitle" class="text-[10px] text-slate-500 mt-1">姝ｅ湪鏌ョ湅鎮ㄧ殑璐㈠瘜绱瀹炵洏鏇茬嚎</p>
+                    </div>
+                    <div class="flex gap-4 items-center">
+                        <span class="text-xs"><span class="text-emerald-400 font-bold" id="perf-total">+0.00%</span></span>
+                        <span class="text-xs text-slate-400">vs SPY <span class="text-blue-400 font-bold" id="perf-beat">+0%</span></span>
+                        <button id="btn-return-nav" class="hidden px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-[10px] font-bold" onclick="switchChartView('nav')">Return to NAV</button>
+                    </div>
+                </div>
+                <div class="flex-1 min-h-[200px] flex items-center">
+                    <canvas id="performanceChart" style="max-height: 220px; width: 100%;"></canvas>
+                </div>
+            </div>
+
+            <div id="regime-card" class="glass-card rounded-2xl p-4 md:p-6 flex flex-col justify-between">
+                <div class="flex justify-between items-start mb-4">
+                    <div id="regime-icon-box" class="p-3 rounded-xl">
+                        <i id="regime-icon" data-lucide="zap" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[8px] text-slate-500 uppercase tracking-wider">Regime</p>
+                        <p id="allocation" class="text-lg md:text-2xl font-black uppercase">--</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-[8px] text-slate-600 uppercase tracking-wider">瀹炴垬鍐崇瓥寤鸿</p>
+                    <p id="action-advice" class="text-xs text-slate-400 italic">姝ｅ湪鐮斿垽鍏ㄧ悆閲戣瀺姘斿帇...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 缁忓吀 2:1 鎺掔増锛氬乏鎸佷粨绠＄悊(2/3瀹藉害) 涓?鍙冲疄鏃舵柊闂诲崱鐗?1/3瀹藉害) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+            <div class="lg:col-span-2 glass-card rounded-2xl p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Your Holdings</h3>
+                    <button onclick="showAddForm()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-lg text-[10px] font-bold">+ Add</button>
+                </div>
+
+                <div id="portfolio-form" class="hidden glass-card rounded-xl p-3 mb-3 border border-blue-500/20">
+                    <div class="grid grid-cols-3 gap-2">
+                        <input id="form-ticker" type="text" placeholder="Ticker" class="bg-slate-800/50 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 font-bold uppercase text-xs">
+                        <input id="form-shares" type="number" placeholder="Shares" class="bg-slate-800/50 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs">
+                        <input id="form-cost" type="number" step="0.01" placeholder="Cost" class="bg-slate-800/50 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs">
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="savePosition()" class="px-3 py-1 bg-emerald-600 rounded-lg text-[10px] font-bold">Save</button>
+                        <button onclick="hideAddForm()" class="px-3 py-1 bg-slate-700 rounded-lg text-[10px]">Cancel</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="text-[8px] text-slate-600 uppercase font-black">
+                                <th class="px-2 py-2 text-left">Ticker</th>
+                                <th class="px-2 py-2 text-center">Sector</th>
+                                <th class="px-2 py-2 text-right">Price</th>
+                                <th class="px-2 py-2 text-right">ATR</th>
+                                <th class="px-2 py-2 text-right">P&L</th>
+                                <th class="px-2 py-2 text-right">Stop</th>
+                                <th class="px-2 py-2 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-list" class="divide-y divide-slate-800/20"></tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end gap-4 mt-3 pt-3 border-t border-slate-800/30 text-xs">
+                    <div class="text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Total</p>
+                        <p id="portfolio-total" class="font-black text-lg">$0.00</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">P&L</p>
+                        <p id="portfolio-pnl" class="font-black text-lg text-emerald-400">+$0.00</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Sector</p>
+                        <p id="sector-alloc" class="font-black text-sm text-blue-400">--</p>
+                    </div>
+                </div>
+                
+                <div id="correlation-warning" class="hidden mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <p class="text-[8px] text-amber-400 uppercase tracking-widest mb-1">High Correlation Warning</p>
+                    <div id="correlation-content" class="text-xs"></div>
+                </div>
+            </div>
+
+            <!-- 鍙充晶锛氬疄鏃朵釜鑲¤祫璁€戝竷娴侊紙鐗╃悊鍗＄墖闃查敊锛?-->
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Real-time News</h3>
+                    <div id="news-list" class="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+                        <p class="text-xs text-slate-500 italic">姝ｅ湪璇诲彇鎸佷粨鏍囩殑璧勮...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-4 md:p-5 mb-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Rebalance Plan</h3>
+                    <p id="rebalance-meta" class="text-xs text-slate-400 mt-1">Waiting for synced rebalance data...</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Sell</p>
+                        <p id="rebalance-sell" class="font-black text-rose-400">$0</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Buy</p>
+                        <p id="rebalance-buy" class="font-black text-emerald-400">$0</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Turnover</p>
+                        <p id="rebalance-turnover" class="font-black text-slate-200">0%</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Net Cash</p>
+                        <p id="rebalance-cash" class="font-black text-blue-400">$0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-[8px] text-slate-600 uppercase font-black">
+                            <th class="px-2 py-2 text-left">Ticker</th>
+                            <th class="px-2 py-2 text-left">Action</th>
+                            <th class="px-2 py-2 text-right">Shares</th>
+                            <th class="px-2 py-2 text-right">Price</th>
+                            <th class="px-2 py-2 text-right">Value</th>
+                            <th class="px-2 py-2 text-left">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rebalance-list" class="divide-y divide-slate-800/20"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-6">
+            <div class="glass-card rounded-2xl p-4 md:p-5">
+                <div class="flex justify-between items-start gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Live Attribution</h3>
+                        <p id="attribution-meta" class="text-xs text-slate-400 mt-1">Waiting for attribution snapshot...</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <div class="inline-flex rounded-xl bg-slate-900/70 p-1 text-[10px] font-bold">
+                            <button id="attr-view-tickers" onclick="setAttributionView('tickers')" class="px-2 py-1 rounded-lg bg-slate-700 text-slate-200">Tickers</button>
+                            <button id="attr-view-sectors" onclick="setAttributionView('sectors')" class="px-2 py-1 rounded-lg text-slate-400">Sectors</button>
+                            <button id="attr-view-strategies" onclick="setAttributionView('strategies')" class="px-2 py-1 rounded-lg text-slate-400">Strategies</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                                <p class="text-[8px] text-slate-500 uppercase">Realized</p>
+                                <p id="attr-realized" class="font-black text-slate-200">$0</p>
+                            </div>
+                            <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                                <p class="text-[8px] text-slate-500 uppercase">Unrealized</p>
+                                <p id="attr-unrealized" class="font-black text-emerald-400">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead id="attribution-head"></thead>
+                        <tbody id="attribution-list" class="divide-y divide-slate-800/20"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 md:p-5">
+                <div class="flex justify-between items-start gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Backtest Robustness</h3>
+                        <p id="backtest-meta" class="text-xs text-slate-400 mt-1">Waiting for backtest snapshot...</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <div class="inline-flex rounded-xl bg-slate-900/70 p-1 text-[10px] font-bold">
+                            <button id="backtest-view-base" onclick="setBacktestView('base')" class="px-2 py-1 rounded-lg bg-slate-700 text-slate-200">Base</button>
+                            <button id="backtest-view-splits" onclick="setBacktestView('splits')" class="px-2 py-1 rounded-lg text-slate-400">Splits</button>
+                            <button id="backtest-view-stress" onclick="setBacktestView('stress')" class="px-2 py-1 rounded-lg text-slate-400">Stress</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                                <p class="text-[8px] text-slate-500 uppercase">Sharpe</p>
+                                <p id="backtest-sharpe" class="font-black text-slate-200">0.00</p>
+                            </div>
+                            <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                                <p class="text-[8px] text-slate-500 uppercase">Max DD</p>
+                                <p id="backtest-dd" class="font-black text-rose-400">0%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead id="backtest-head"></thead>
+                        <tbody id="backtest-list" class="divide-y divide-slate-800/20"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 閫夎偂澶ф帹鑽愬悕鍗?(100%鍏ㄥ鐙崰锛屽交搴曡В鍐冲彸涓嬭鎸ゅ帇闂) -->
+        <div class="glass-card rounded-2xl md:rounded-[2.5rem] overflow-hidden mb-6">
+            <div class="flex">
+                <button onclick="switchTab('tech')" id="tab-tech" class="flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 border-b-4 border-blue-500 bg-blue-500/5 text-blue-400">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                    <span class="font-black text-xs uppercase tracking-wider">Tech Alpha</span>
+                </button>
+                <button onclick="switchTab('power')" id="tab-power" class="flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 text-slate-500 hover:bg-slate-800/30">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                    <span class="font-black text-xs uppercase tracking-wider">Power Defense</span>
+                </button>
+            </div>
+
+            <div class="p-4 md:p-6 overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-[8px] text-slate-600 uppercase font-black">
+                            <th class="px-3 py-3 text-left">Ticker</th>
+                            <th class="px-3 py-3 text-right">Price</th>
+                            <th class="px-3 py-3 text-right">Score</th>
+                            <th class="px-3 py-3 text-right hidden md:table-cell">R40/Mom</th>
+                            <th class="px-3 py-3 text-right">ATR</th>
+                            <th class="px-3 py-3 text-right">Signal</th>
+                            <th class="px-3 py-3 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-list" class="divide-y divide-slate-800/20"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 鍥犲瓙璇︽儏寮圭獥 -->
+    <div id="stock-tooltip" class="tooltip glass-card rounded-2xl p-4">
+        <div class="flex justify-between items-start mb-2">
+            <h4 id="tooltip-ticker" class="text-lg font-black text-blue-400"></h4>
+            <button onclick="hideTooltip()" class="text-slate-500 hover:text-slate-300"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div id="tooltip-content" class="space-y-2 text-xs"></div>
+        <div class="mt-2 pt-2 border-t border-slate-700/50">
+            <p class="text-[8px] text-slate-500 uppercase tracking-widest">Advisor</p>
+            <p id="tooltip-advice" class="text-slate-300 text-xs italic mt-1"></p>
+            <button id="tooltip-news-btn" onclick="closeTooltip(); openNewsSidebar(document.getElementById('tooltip-ticker').innerText, currentSignalNews)" class="mt-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-bold w-full">
+                View All News
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBSzfCc6Xyv-FsH8QQv_pXse86hl1bgqp8",
+            authDomain: "zence-quant.firebaseapp.com",
+            projectId: "zence-quant",
+            storageBucket: "zence-quant.firebasestorage.app",
+            messagingSenderId: "349932599069",
+            appId: "1:349932599069:web:99e97c807f3a7a2a6f93f4"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentSignal = null;
+        let activeTab = 'tech';
+        let currentUser = null;
+        let portfolio = [];
+        let portfolioChart = null;
+        let livePrices = {};
+        let highPrices = {};
+        let currentSignalNews = [];
+        let currentHistory = [];
+        let currentChartView = 'nav'; // 缁熶竴浣跨敤璇ュ彉閲忔帶鍒跺浘琛ㄨ鍥撅細'nav', 'vix', 'us10y', 'spy'
+        let activeMacro = { vix: 16.3, us10y: 4.35, spy: 739.17 };
+        let attributionView = 'tickers';
+        let backtestView = 'base';
+        let dataSourceMode = 'unknown';
+        let dashboardConfig = null;
+
+        const DEFAULT_DASHBOARD_CONFIG = {
+            activeMode: 'local',
+            dataSources: {
+                local: {
+                    label: 'LOCAL',
+                    signalCorePath: './results/last_core_payload.json',
+                    signalEnrichPath: './results/last_enrichment_payload.json',
+                    historySnapshotPath: './results/last_history_snapshot.json'
+                },
+                hosted: {
+                    label: 'HOSTED',
+                    signalCorePath: './data/last_core_payload.json',
+                    signalEnrichPath: './data/last_enrichment_payload.json',
+                    historySnapshotPath: './data/last_history_snapshot.json'
+                },
+                firebase: {
+                    label: 'FIREBASE'
+                }
+            }
+        };
+
+        function setDataSourceStatus(label) {
+            const statusEl = document.getElementById('user-status');
+            statusEl.innerText = label;
+            statusEl.classList.remove('hidden');
+        }
+
+        async function tryFetchJson(path) {
+            try {
+                const resp = await fetch(path, { cache: 'no-store' });
+                if (!resp.ok) return null;
+                return await resp.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function getModeOverride() {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            return mode && ['local', 'hosted', 'firebase'].includes(mode) ? mode : null;
+        }
+
+        async function loadDashboardConfig() {
+            const remoteConfig = await tryFetchJson('./dashboard.config.json');
+            dashboardConfig = {
+                ...DEFAULT_DASHBOARD_CONFIG,
+                ...(remoteConfig || {}),
+                dataSources: {
+                    ...DEFAULT_DASHBOARD_CONFIG.dataSources,
+                    ...((remoteConfig && remoteConfig.dataSources) || {})
+                }
+            };
+            return dashboardConfig;
+        }
+
+        function mergeSignalPayload(basePayload, patchPayload) {
+            if (!patchPayload) return basePayload;
+            return {
+                ...basePayload,
+                ...patchPayload,
+                macro: patchPayload.macro || basePayload.macro,
+                performance: patchPayload.performance || basePayload.performance,
+                rebalance: patchPayload.rebalance || basePayload.rebalance,
+                attribution: patchPayload.attribution || basePayload.attribution,
+                backtest: patchPayload.backtest || basePayload.backtest,
+                user_portfolio: patchPayload.user_portfolio || basePayload.user_portfolio,
+                tech_picks: patchPayload.tech_picks || basePayload.tech_picks,
+                power_picks: patchPayload.power_picks || basePayload.power_picks,
+                correlation_data: patchPayload.correlation_data || basePayload.correlation_data,
+            };
+        }
+
+        async function loadConfiguredSignalData(mode) {
+            const sourceConfig = dashboardConfig?.dataSources?.[mode];
+            if (!sourceConfig?.signalCorePath) return false;
+
+            const corePayload = await tryFetchJson(sourceConfig.signalCorePath);
+            if (!corePayload) return false;
+
+            const enrichPayload = sourceConfig.signalEnrichPath ? await tryFetchJson(sourceConfig.signalEnrichPath) : null;
+            const historySnapshot = sourceConfig.historySnapshotPath ? await tryFetchJson(sourceConfig.historySnapshotPath) : null;
+            currentSignal = mergeSignalPayload(corePayload, enrichPayload);
+
+            if (currentSignal.macro) {
+                activeMacro = currentSignal.macro;
+            }
+            if (currentSignal.user_portfolio && currentSignal.user_portfolio.length) {
+                hydratePortfolioFromSignal(currentSignal);
+                renderPortfolio();
+            }
+
+            currentHistory = Array.isArray(historySnapshot) ? historySnapshot : (historySnapshot ? [historySnapshot] : []);
+            renderUI();
+            renderStockList();
+            renderNews();
+            updateChart();
+
+            dataSourceMode = mode;
+            setDataSourceStatus(`${sourceConfig.label || mode.toUpperCase()} | ${currentSignal.sync_stage || 'core'}`);
+            return true;
+        }
+
+        function hydratePortfolioFromSignal(signal) {
+            const holdings = signal?.user_portfolio || [];
+            portfolio = holdings.map((p) => ({
+                ticker: p.ticker,
+                shares: +p.shares || 0,
+                costPrice: +p.costPrice || +p.cost_price || +p.avg_cost || 0,
+                currentPrice: +p.currentPrice || +p.current_price || +p.price || 0,
+                atr: +p.atr || 0,
+                sector: p.sector || getSectorFromMap(p.ticker),
+                stopPrice: +p.stop_price || 0,
+                unrealizedPnl: +p.unrealized_pnl || 0,
+                marketValue: +p.market_value || 0,
+            }));
+            livePrices = {};
+            highPrices = {};
+            portfolio.forEach((p) => {
+                livePrices[p.ticker] = p.currentPrice;
+                highPrices[p.ticker] = p.currentPrice;
+            });
+        }
+
+        const FINNHUB_KEY = localStorage.getItem('FINNHUB_KEY') || '';
+
+        function updateClock() {
+            document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        async function fetchLivePrice(ticker) {
+            if (!FINNHUB_KEY) return livePrices[ticker] || 0;
+            try {
+                const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
+                const data = await resp.json();
+                if (data.c) {
+                    livePrices[ticker] = data.c;
+                    if (!highPrices[ticker] || data.h > highPrices[ticker]) highPrices[ticker] = data.h;
+                    return data.c;
+                }
+            } catch (e) {}
+            return livePrices[ticker] || 0;
+        }
+
+        // 棣栨棩鏃犳暟鎹椂鐨勫钩婊戣秼鍔挎尝褰㈢敓鎴愬櫒 (Cold Start Generator)
+        function generateColdStartData(type) {
+            const labels = [], data = [];
+            const today = new Date();
+            let baseValue = 0, trend = 0;
+            
+            if (type === 'vix') {
+                baseValue = activeMacro.vix || 16.3;
+                trend = -0.5;
+            } else if (type === 'us10y') {
+                baseValue = activeMacro.us10y || 4.35;
+                trend = 0.05;
+            } else if (type === 'spy') {
+                baseValue = activeMacro.spy || 739.17;
+                trend = 4.2;
+            } else {
+                baseValue = 5825.68;
+                trend = 120.0;
+            }
+            
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                labels.push(dateStr);
+                
+                if (type === 'nav') {
+                    baseValue = baseValue + (Math.sin(i) * 110) + trend;
+                } else {
+                    const noise = Math.sin(i) * Math.abs(trend * 0.4);
+                    baseValue = baseValue + noise;
+                    if (baseValue < 0) baseValue = Math.abs(baseValue);
+                }
+                data.push(parseFloat(baseValue.toFixed(2)));
+            }
+            return { labels, data };
+        }
+
+        // 缁熶竴缁樺浘寮曟搸 (褰诲簳瑙ｉ攣寮€灞€绌烘寚閽堟嫤鎴?
+        function updateChart() {
+            if (!portfolioChart) return;
+            
+            let label = 'Portfolio Value (NAV)';
+            let dataPoints = [];
+            let chartLabels = [];
+            let borderColor = '#06b6d4';
+            let bgColor = 'rgba(6, 182, 212, 0.08)';
+            let titleText = "Real Portfolio Growth (NAV)";
+            let subtitleText = "姝ｅ湪鏌ョ湅鎮ㄧ殑璐㈠瘜绱瀹炵洏鏇茬嚎";
+
+            let historyToUse = [...currentHistory];
+            if (historyToUse.length < 2) {
+                historyToUse = [];
+                const today = new Date();
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(today.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    historyToUse.push({
+                        date: dateStr,
+                        total_value: 5825.68 + (i * 85) - (Math.sin(i) * 120),
+                        vix: activeMacro.vix + (Math.sin(i) * 0.8),
+                        us10y: activeMacro.us10y + (Math.cos(i) * 0.03),
+                        spy: activeMacro.spy + (Math.sin(i) * 4)
+                    });
+                }
+            }
+
+            chartLabels = historyToUse.map(d => d.date);
+
+            if (currentChartView === 'vix') {
+                label = 'VIX Index';
+                dataPoints = historyToUse.map(d => d.vix || activeMacro.vix);
+                borderColor = '#f43f5e';
+                bgColor = 'rgba(244, 63, 94, 0.08)';
+                titleText = "VIX Index Historical Trend";
+                subtitleText = "鎭愭厡鎸囨暟璧板娍鍥撅紝鐢ㄦ潵鍒ゅ畾褰撳墠甯傚満鎯呯华娣卞害";
+            } else if (currentChartView === 'us10y') {
+                label = 'US 10Y Yield';
+                dataPoints = historyToUse.map(d => d.us10y || activeMacro.us10y);
+                borderColor = '#3b82f6';
+                bgColor = 'rgba(59, 130, 246, 0.08)';
+                titleText = "US 10Y Bond Yield Trend";
+                subtitleText = "10骞存湡缇庡€烘敹鐩婄巼锛岀洃鎺ф棤椋庨櫓鍒╃巼瀵圭鎶€鑲′及鍊肩殑鍘嬭揩";
+            } else if (currentChartView === 'spy') {
+                label = 'SPY ETF Price';
+                dataPoints = historyToUse.map(d => d.spy || activeMacro.spy);
+                borderColor = '#10b981';
+                bgColor = 'rgba(16, 185, 129, 0.08)';
+                titleText = "SPY ETF Historical Price";
+                subtitleText = "SPY benchmark trend for portfolio comparison.";
+            } else {
+                dataPoints = historyToUse.map(d => d.total_value);
+                borderColor = '#06b6d4';
+                bgColor = 'rgba(6, 182, 212, 0.08)';
+            }
+
+            document.getElementById('chart-title').innerText = titleText;
+            document.getElementById('chart-subtitle').innerText = subtitleText;
+            
+            const btnNav = document.getElementById('btn-return-nav');
+            if (currentChartView === 'nav') {
+                btnNav.classList.add('hidden');
+            } else {
+                btnNav.classList.remove('hidden');
+            }
+
+            portfolioChart.data.labels = chartLabels;
+            portfolioChart.data.datasets[0].label = label;
+            portfolioChart.data.datasets[0].data = dataPoints;
+            portfolioChart.data.datasets[0].borderColor = borderColor;
+            portfolioChart.data.datasets[0].backgroundColor = bgColor;
+            portfolioChart.update();
+        }
+
+        async function switchChartView(view) {
+            currentChartView = view;
+            
+            document.getElementById('card-vix').classList.remove('macro-card-active');
+            document.getElementById('card-us10y').classList.remove('macro-card-active');
+            document.getElementById('card-spy').classList.remove('macro-card-active');
+            
+            if (view !== 'nav') {
+                const activeCard = document.getElementById(`card-${view}`);
+                if (activeCard) activeCard.classList.add('macro-card-active');
+            }
+            updateChart();
+        }
+
+        async function startSync() {
+            showSkeleton();
+            try {
+                initChart();
+                await loadDashboardConfig();
+                const selectedMode = getModeOverride() || dashboardConfig.activeMode || 'local';
+                const loadedConfigured = selectedMode !== 'firebase' ? await loadConfiguredSignalData(selectedMode) : false;
+                if (loadedConfigured) {
+                    hideSkeleton();
+                    return;
+                }
+
+                await auth.signInAnonymously();
+                auth.onAuthStateChanged(async (user) => {
+                    currentUser = user;
+                    if (user) {
+                        setDataSourceStatus(user.uid.substring(0, 6));
+                        await loadPortfolio();
+                        await syncLivePrices();
+                    }
+                });
+
+                // 鐩戝惉浜戠瀹炴椂绛栫暐淇″彿
+                const docRef = db.collection('artifacts').doc('zence-quant').collection('public').doc('data').collection('signals').doc('latest');
+                docRef.onSnapshot((doc) => {
+                    if (doc.exists) {
+                        currentSignal = doc.data();
+                        if (currentSignal.macro) {
+                            activeMacro = currentSignal.macro;
+                        }
+                        if (currentSignal.user_portfolio && currentSignal.user_portfolio.length) {
+                            hydratePortfolioFromSignal(currentSignal);
+                            renderPortfolio();
+                        }
+                        renderUI();
+                        renderStockList();
+                        renderNews();
+                        dataSourceMode = 'firebase';
+                        setDataSourceStatus('FIREBASE');
+                    }
+                });
+
+                // 鐩戝惉浜戠鍘嗗彶鏁版嵁锛屾憭寮?limit 璇硶闃叉浜戠鎷︽埅锛岀洿鎺ュ埄鐢?JS 杩愯鏃惰繘琛屾帓搴忓拰鎴彇 (瀹岀編濂戝悎 Rule 2 瑙勮寖)
+                db.collection('artifacts').doc('zence-quant').collection('public').doc('data').collection('history').onSnapshot(snap => {
+                    currentHistory = snap.docs.map(d => d.data()).sort((a,b) => a.date.localeCompare(b.date)).slice(-30);
+                    updateChart();
+                }, (err) => {
+                    console.error("鍘嗗彶蹇収娴侀樆鏂紝鍚姩鏈湴瓒嬪娍妯℃嫙:", err);
+                    updateChart();
+                });
+
+                hideSkeleton();
+            } catch (e) { console.error(e); hideSkeleton(); }
+        }
+
+        function showSkeleton() { document.getElementById('skeleton-screen').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); }
+        function hideSkeleton() { document.getElementById('skeleton-screen').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); lucide.createIcons(); }
+
+        // 灏嗕箣鍓嶉敊璇殑 .document() 鍑芥暟锛屽畬缇庝慨澶嶄负 .doc()锛岄伩鍏?JS 鎵ц鎶ラ敊鎸傝浇
+        async function loadPortfolio() {
+            if (!currentUser) return;
+            try {
+                if (currentSignal?.user_portfolio?.length) {
+                    hydratePortfolioFromSignal(currentSignal);
+                    renderPortfolio();
+                    return;
+                }
+                const docRef = db.collection('artifacts').doc('zence-quant').collection('users').doc(currentUser.uid).collection('portfolio').doc('positions');
+                const doc = await docRef.get();
+                let rawPositions = doc.exists ? (doc.data().positions || []) : [];
+                rawPositions = rawPositions.map(p => ({
+                    ...p,
+                    sector: p.sector || getSectorFromMap(p.ticker)
+                }));
+                portfolio = rawPositions;
+                portfolio.forEach(p => { highPrices[p.ticker] = livePrices[p.ticker] || p.costPrice; });
+                renderPortfolio();
+            } catch (e) { console.error(e); }
+        }
+
+        async function savePortfolio() {
+            if (!currentUser) return;
+            try {
+                const docRef = db.collection('artifacts').doc('zence-quant').collection('users').doc(currentUser.uid).collection('portfolio').doc('positions');
+                await docRef.set({ positions: portfolio, updatedAt: new Date().toISOString() });
+            } catch (e) {}
+        }
+
+        async function syncLivePrices() {
+            const tickers = portfolio.map(p => p.ticker);
+            if (tickers.length === 0) return;
+            await Promise.all(tickers.map(async (t) => {
+                const quote = await fetchLivePrice(t);
+                if (!highPrices[t] || livePrices[t] > highPrices[t]) highPrices[t] = livePrices[t];
+            }));
+            renderPortfolio();
+        }
+
+        function showAddForm() { document.getElementById('portfolio-form').classList.remove('hidden'); }
+        function hideAddForm() { document.getElementById('portfolio-form').classList.add('hidden'); }
+
+        async function savePosition() {
+            const ticker = document.getElementById('form-ticker').value.trim().toUpperCase();
+            const shares = parseFloat(document.getElementById('form-shares').value);
+            const cost = parseFloat(document.getElementById('form-cost').value);
+            if (!ticker || isNaN(shares) || isNaN(cost)) { alert('Fill all fields'); return; }
+            const price = await fetchLivePrice(ticker);
+            livePrices[ticker] = price;
+            highPrices[ticker] = price;
+            portfolio.push({ ticker, shares, costPrice: cost, currentPrice: price, sector: getSectorFromMap(ticker) });
+            await savePortfolio();
+            hideAddForm();
+            renderPortfolio();
+        }
+
+        async function removePosition(idx) { portfolio.splice(idx, 1); await savePortfolio(); renderPortfolio(); }
+
+        async function clearPortfolio() {
+            if (confirm('Clear all positions?')) {
+                portfolio = [];
+                livePrices = {};
+                highPrices = {};
+                await savePortfolio();
+                renderPortfolio();
+            }
+        }
+
+        function renderPortfolio() {
+            const tbody = document.getElementById('portfolio-list');
+            tbody.innerHTML = '';
+            let totalValue = 0, totalCost = 0;
+
+            portfolio.forEach((p, idx) => {
+                const price = livePrices[p.ticker] || p.currentPrice || 0;
+                const high = highPrices[p.ticker] || price;
+                const atr = p.atr || (price * 0.02);
+                const stopLoss = p.stopPrice || (high - 2 * atr);
+                const marketValue = p.marketValue || (price * p.shares);
+                const costBasis = p.costPrice * p.shares;
+                const pnl = Number.isFinite(p.unrealizedPnl) && p.unrealizedPnl !== 0 ? p.unrealizedPnl : (marketValue - costBasis);
+                const pnlPct = costBasis > 0 ? (pnl / costBasis * 100) : 0;
+                totalValue += marketValue; totalCost += costBasis;
+
+                const stopLossHit = price < stopLoss;
+                const rowClass = stopLossHit ? 'blink-danger' : 'hover:bg-white/5';
+                const tickerClass = stopLossHit ? 'text-rose-400 font-black' : 'text-blue-400 font-black';
+                const stopLossClass = stopLossHit ? 'text-rose-400 font-bold bg-rose-500/20 px-2 py-1 rounded-lg' : 'text-amber-400 font-mono';
+                
+                const isHighCorr = checkHighCorrelation(p.ticker, currentSignal);
+                const corrIcon = isHighCorr ? '<span class="ml-2 text-amber-400 text-[8px] font-bold">[HIGH CORR]</span>' : '';
+                const displaySector = p.sector || getSectorFromMap(p.ticker);
+                
+                tbody.innerHTML += `
+                    <tr class="${rowClass}">
+                        <td class="px-2 py-3">
+                            <div class="flex items-center flex-wrap ${tickerClass}">${p.ticker}${corrIcon}</div>
+                        </td>
+                        <td class="px-2 py-3 text-center">
+                            <span class="px-2 py-1 bg-slate-700/50 text-slate-300 rounded text-[10px] font-bold">${displaySector}</span>
+                        </td>
+                        <td class="px-2 py-3 text-right font-mono">$${price.toFixed(2)}</td>
+                        <td class="px-2 py-3 text-right font-mono text-amber-400 font-bold">${atr.toFixed(2)}</td>
+                        <td class="px-2 py-3 text-right font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</td>
+                        <td class="px-2 py-3 text-right ${stopLossClass}">$${stopLoss.toFixed(2)}</td>
+                        <td class="px-2 py-3 text-right">
+                            <button onclick="removePosition(${idx})" class="px-3 py-2 bg-rose-500/20 text-rose-400 rounded-lg text-[11px] font-bold">X</button>
+                        </td>
+                    </tr>`;
+            });
+
+            const totalPnl = totalValue - totalCost;
+            const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost * 100) : 0;
+            document.getElementById('portfolio-total').innerText = '$' + totalValue.toFixed(2);
+            const pnlEl = document.getElementById('portfolio-pnl');
+            pnlEl.innerText = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2) + ' (' + (totalPnl >= 0 ? '+' : '') + totalPnlPct.toFixed(1) + '%)';
+            pnlEl.className = 'font-black text-base ' + (totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+            
+            const sectorCounts = {};
+            portfolio.forEach(p => {
+                const sector = p.sector || getSectorFromMap(p.ticker);
+                sectorCounts[sector] = (sectorCounts[sector] || 0) + 1;
+            });
+            const totalStocks = portfolio.length || 1;
+            const sectorAlloc = {};
+            Object.entries(sectorCounts).forEach(([sector, count]) => {
+                sectorAlloc[sector] = Math.round(count / totalStocks * 100 * 10) / 10;
+            });
+            const sectorText = Object.entries(sectorAlloc).map(([s, p]) => `${s} ${p}%`).join(', ');
+            const sectorEl = document.getElementById('sector-alloc');
+            if (sectorText) sectorEl.innerText = sectorText;
+            else sectorEl.innerText = 'No data';
+            
+            const sectorAlert = document.getElementById('sector-alert');
+            const sectorAlertText = document.getElementById('sector-alert-text');
+            let highSector = null;
+            Object.entries(sectorAlloc).forEach(([sector, percent]) => {
+                if (percent >= 60 && portfolio.length >= 2) {
+                    highSector = sector;
+                }
+            });
+            if (highSector) {
+                sectorAlert.classList.remove('hidden');
+                sectorAlertText.innerText = 'Sector Concentration Warning: ' + highSector + ' > 60%';
+            } else {
+                sectorAlert.classList.add('hidden');
+            }
+            
+            const corrData = currentSignal?.correlation_data || {};
+            const highCorrPairs = corrData.high_corr_pairs || [];
+            const corrWarning = document.getElementById('correlation-warning');
+            const corrContent = document.getElementById('correlation-content');
+            if (highCorrPairs.length > 0) {
+                corrWarning.classList.remove('hidden');
+                corrContent.innerHTML = highCorrPairs.map(p => `<span class="inline-block px-2 py-1 bg-amber-500/20 text-amber-400 rounded mr-1 mb-1">${p[0]}-${p[1]}: ${p[2]}</span>`).join('');
+            } else {
+                corrWarning.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+
+        function openNewsSidebar(ticker, news) {
+            const sidebar = document.getElementById('news-sidebar');
+            const overlay = document.getElementById('news-overlay');
+            const title = document.getElementById('news-sidebar-title');
+            const content = document.getElementById('news-sidebar-content');
+            
+            title.innerText = ticker + ' - Real-time News';
+            const keywords = ['earnings', 'buyback', 'lawsuit', 'fda', 'investigation', 'acquisition', 'merger'];
+            
+            if (!news || news.length === 0) {
+                content.innerHTML = '<p class="text-xs text-slate-500 italic">No recent news available</p>';
+            } else {
+                content.innerHTML = news.map((n, i) => {
+                    let headline = n.headline || '';
+                    keywords.forEach(kw => {
+                        if (headline.toLowerCase().includes(kw)) {
+                            headline = headline.replace(new RegExp('(' + kw + ')', 'gi'), '<span class="news-highlight">$1</span>');
+                        }
+                    });
+                    return `
+                        <div class="p-3 bg-slate-800/50 rounded-xl hover:bg-slate-800 cursor-pointer" onclick="window.open('${n.url || '#'}', '_blank')">
+                            <p class="text-xs text-slate-400 mb-1">${n.source || 'Unknown'} | ${n.datetime ? new Date(n.datetime * 1000).toLocaleDateString() : ''}</p>
+                            <p class="text-sm text-slate-200 leading-relaxed">${headline}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+            lucide.createIcons();
+        }
+
+        function closeNewsSidebar() {
+            document.getElementById('news-sidebar').classList.remove('open');
+            document.getElementById('news-overlay').classList.remove('open');
+        }
+
+        function openEarningsWarning(ticker, earningsDate, daysUntil, volatility) {
+            const sidebar = document.getElementById('news-sidebar');
+            const overlay = document.getElementById('news-overlay');
+            const title = document.getElementById('news-sidebar-title');
+            const content = document.getElementById('news-sidebar-content');
+            
+            title.innerText = 'Earnings Warning: ' + ticker;
+            const riskLevel = daysUntil <= 3 ? 'HIGH RISK' : 'WARNING';
+            const riskColor = daysUntil <= 3 ? 'text-rose-400' : 'text-amber-400';
+            
+            content.innerHTML = `
+                <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl mb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 ${riskColor}"></i>
+                        <span class="text-lg font-black ${riskColor} uppercase">${riskLevel}</span>
+                    </div>
+                    <p class="text-2xl font-black text-slate-200">${ticker}</p>
+                </div>
+                
+                <div class="space-y-3">
+                    <div class="p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-[8px] text-slate-500 uppercase tracking-widest">Earnings Date</p>
+                        <p class="text-lg font-black text-slate-200">${earningsDate || 'TBD'}</p>
+                        <p class="text-sm ${riskColor} font-bold">${daysUntil} days remaining</p>
+                    </div>
+                    
+                    <div class="p-3 bg-slate-800/50 rounded-xl">
+                        <p class="text-[8px] text-slate-500 uppercase tracking-widest">Historical Volatility</p>
+                        <p class="text-lg font-black text-slate-200">${volatility || 8}%</p>
+                        <p class="text-xs text-slate-400">Average post-earnings move</p>
+                    </div>
+                    
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                        <p class="text-[8px] text-amber-400 uppercase tracking-widest mb-1">Advisor Recommendation</p>
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            ${daysUntil <= 3 
+                                ? 'HIGH ALERT: Earnings within 3 days. Consider reducing position or setting tight stop loss. Expected volatility: ' + (volatility || 8) + '%.' 
+                                : 'WARNING: Earnings within 7 days. Monitor closely and consider partial profit-taking. Expected volatility: ' + (volatility || 8) + '%.'}
+                        </p>
+                    </div>
+                    
+                    <button onclick="openNewsSidebar('${ticker}', [])" class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-bold">
+                        View Related News
+                    </button>
+                </div>
+            `;
+            
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+            lucide.createIcons();
+        }
+
+        // 閲嶆柊琛ラ綈 news-list 瀹瑰櫒鐨勬暟鎹笂浼狅紝瑙ｉ櫎 DOM 宕╂簝寮傚父
+        function renderNews() {
+            const newsList = document.getElementById('news-list');
+            if (!newsList) return;
+            const userPortfolio = currentSignal?.user_portfolio || [];
+            const allNews = [];
+            
+            userPortfolio.forEach(stock => {
+                if (stock.news && stock.news.length > 0) {
+                    stock.news.slice(0, 3).forEach(n => {
+                        if (n.headline) allNews.push({ ticker: stock.ticker, headline: n.headline, url: n.url });
+                    });
+                }
+            });
+
+            if (allNews.length === 0) {
+                newsList.innerHTML = '<p class="text-xs text-slate-500 italic">No recent news available.</p>';
+                return;
+            }
+
+            const keywords = ['earnings', 'buyback', 'lawsuit', 'fda'];
+            newsList.innerHTML = allNews.map((n, i) => {
+                let headline = n.headline;
+                keywords.forEach(kw => {
+                    if (headline.toLowerCase().includes(kw)) {
+                        headline = headline.replace(new RegExp('(' + kw + ')', 'gi'), '<span class="news-highlight">$1</span>');
+                    }
+                });
+                return `
+                    <div class="news-item p-2 rounded-lg cursor-pointer" onclick="window.open('${n.url || '#'}', '_blank')">
+                        <span class="text-[8px] text-blue-400 font-bold">${n.ticker}</span>
+                        <p class="text-xs text-slate-300 mt-1 line-clamp-2">${headline}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            portfolioChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Portfolio Value',
+                            data: [],
+                            borderColor: '#06b6d4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#64748b', maxTicksLimit: 8 } },
+                        y: { position: 'left', grid: { color: 'rgba(30,41,59,0.5)' }, ticks: { color: '#64748b' } }
+                    }
+                }
+            });
+        }
+
+        function renderUI() {
+            if (!currentSignal) return;
+            document.getElementById('vix-val').innerText = currentSignal.macro?.vix?.toFixed(1) || "18.5";
+            document.getElementById('us10y-val').innerText = (currentSignal.macro?.us10y || "4.35") + "%";
+            document.getElementById('spy-val').innerText = "$" + (currentSignal.macro?.spy || "520");
+            document.getElementById('perf-total').innerText = currentSignal.performance?.total || "+0.00%";
+            document.getElementById('perf-beat').innerText = currentSignal.performance?.beat_spy || "+0%";
+
+            const isBull = currentSignal.market_regime === "BULL";
+            document.getElementById('allocation').innerText = isBull ? "BULL" : "BEAR";
+            document.getElementById('action-advice').innerText = isBull ? "VIX low, bullish. Tech firing. Buy on 5% pullback." : "VIX high, bearish. Hold 50% cash.";
+
+            const card = document.getElementById('regime-card'), iconBox = document.getElementById('regime-icon-box');
+            if (isBull) {
+                card.className = "glass-card rounded-2xl p-4 border border-emerald-500/20";
+                iconBox.className = "p-3 rounded-xl bg-emerald-500 text-slate-900";
+            } else {
+                card.className = "glass-card rounded-2xl p-4 border border-rose-500/20";
+                iconBox.className = "p-3 rounded-xl bg-rose-500 text-white";
+            }
+            renderRebalancePanel();
+            renderAttributionPanel();
+            renderBacktestPanel();
+            lucide.createIcons();
+        }
+
+        function renderRebalancePanel() {
+            const metaEl = document.getElementById('rebalance-meta');
+            const sellEl = document.getElementById('rebalance-sell');
+            const buyEl = document.getElementById('rebalance-buy');
+            const turnoverEl = document.getElementById('rebalance-turnover');
+            const cashEl = document.getElementById('rebalance-cash');
+            const tbody = document.getElementById('rebalance-list');
+            const rebalance = currentSignal?.rebalance;
+
+            if (!rebalance) {
+                metaEl.innerText = 'Waiting for synced rebalance data...';
+                sellEl.innerText = '$0';
+                buyEl.innerText = '$0';
+                turnoverEl.innerText = '0%';
+                cashEl.innerText = '$0';
+                tbody.innerHTML = '<tr><td colspan="6" class="px-2 py-4 text-slate-500 italic">No rebalance plan synced.</td></tr>';
+                return;
+            }
+
+            metaEl.innerText = `V${rebalance.version} | Signal ${rebalance.signal_date} | Tech ${Math.round((rebalance.target_allocation?.tech || 0) * 100)}% | Power ${Math.round((rebalance.target_allocation?.power || 0) * 100)}%`;
+            sellEl.innerText = '$' + (rebalance.phase_execution?.sell_value || 0).toFixed(0);
+            buyEl.innerText = '$' + (rebalance.phase_execution?.buy_value || 0).toFixed(0);
+            turnoverEl.innerText = ((rebalance.phase_execution?.gross_turnover_ratio || 0) * 100).toFixed(1) + '%';
+            cashEl.innerText = '$' + (rebalance.phase_execution?.net_cash_raise || 0).toFixed(0);
+
+            const rows = [
+                ...(rebalance.sell_orders || []).map(x => ({ ...x, ui_action: 'SELL' })),
+                ...(rebalance.buy_orders || []).map(x => ({ ...x, ui_action: 'BUY' })),
+                ...(rebalance.hold_orders || []).map(x => ({ ...x, ui_action: 'HOLD' })),
+            ];
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-2 py-4 text-slate-500 italic">No rebalance actions.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map((row) => {
+                const actionClass =
+                    row.ui_action === 'BUY'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : row.ui_action === 'SELL'
+                        ? 'bg-rose-500/20 text-rose-400'
+                        : 'bg-slate-700 text-slate-300';
+                return `
+                    <tr class="hover:bg-white/5">
+                        <td class="px-2 py-3 font-black ${row.ui_action === 'BUY' ? 'text-blue-400' : 'text-slate-200'}">${row.ticker}</td>
+                        <td class="px-2 py-3"><span class="px-2 py-1 rounded-lg text-[10px] font-bold ${actionClass}">${row.ui_action}</span></td>
+                        <td class="px-2 py-3 text-right font-mono">${row.order_shares || 0}</td>
+                        <td class="px-2 py-3 text-right font-mono">$${(row.current_price || 0).toFixed(2)}</td>
+                        <td class="px-2 py-3 text-right font-mono">$${(row.phase_order_value || 0).toFixed(2)}</td>
+                        <td class="px-2 py-3 text-slate-400">${row.action_reason || '--'}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function setAttributionView(view) {
+            attributionView = view;
+            renderAttributionPanel();
+            lucide.createIcons();
+        }
+
+        function setBacktestView(view) {
+            backtestView = view;
+            renderBacktestPanel();
+            lucide.createIcons();
+        }
+
+        function renderSegmentedButtons(prefix, currentView, views) {
+            views.forEach((view) => {
+                const button = document.getElementById(`${prefix}-${view}`);
+                if (!button) return;
+                if (view === currentView) {
+                    button.className = 'px-2 py-1 rounded-lg bg-slate-700 text-slate-200';
+                } else {
+                    button.className = 'px-2 py-1 rounded-lg text-slate-400 hover:text-slate-200';
+                }
+            });
+        }
+
+        function renderTableHead(containerId, columns) {
+            const head = document.getElementById(containerId);
+            if (!head) return;
+            head.innerHTML = `
+                <tr class="text-[8px] text-slate-600 uppercase font-black">
+                    ${columns.map((col) => `<th class="px-2 py-2 ${col.align || 'text-left'}">${col.label}</th>`).join('')}
+                </tr>
+            `;
+        }
+
+        function formatCurrency(value, digits = 2) {
+            return '$' + (+value || 0).toFixed(digits);
+        }
+
+        function formatPercent(value, digits = 1) {
+            return ((+value || 0) * 100).toFixed(digits) + '%';
+        }
+
+        function pnlClass(value) {
+            return (+value || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        }
+
+        function renderAttributionPanel() {
+            const metaEl = document.getElementById('attribution-meta');
+            const realizedEl = document.getElementById('attr-realized');
+            const unrealizedEl = document.getElementById('attr-unrealized');
+            const tbody = document.getElementById('attribution-list');
+            const attribution = currentSignal?.attribution;
+
+            if (!attribution || !attribution.summary) {
+                metaEl.innerText = 'Waiting for attribution snapshot...';
+                realizedEl.innerText = '$0';
+                unrealizedEl.innerText = '$0';
+                tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-slate-500 italic">No attribution snapshot synced.</td></tr>';
+                return;
+            }
+
+            const summary = attribution.summary;
+            metaEl.innerText = `As of ${summary.as_of_signal_date} | Open ${summary.open_positions} | Total P&L ${formatCurrency(summary.total_pnl)}`;
+            realizedEl.innerText = formatCurrency(summary.realized_pnl, 0);
+            unrealizedEl.innerText = formatCurrency(summary.unrealized_pnl, 0);
+            renderSegmentedButtons('attr-view', attributionView, ['tickers', 'sectors', 'strategies']);
+
+            let rows = [];
+            if (attributionView === 'sectors') {
+                renderTableHead('attribution-head', [
+                    { label: 'Sector', align: 'text-left' },
+                    { label: 'Realized', align: 'text-right' },
+                    { label: 'Unrealized', align: 'text-right' },
+                    { label: 'Total', align: 'text-right' },
+                    { label: 'Weight', align: 'text-right' },
+                ]);
+                rows = attribution.sector_breakdown || [];
+            } else if (attributionView === 'strategies') {
+                renderTableHead('attribution-head', [
+                    { label: 'Strategy', align: 'text-left' },
+                    { label: 'Realized', align: 'text-right' },
+                    { label: 'Unrealized', align: 'text-right' },
+                    { label: 'Total', align: 'text-right' },
+                    { label: 'Open MV', align: 'text-right' },
+                ]);
+                rows = attribution.strategy_breakdown || [];
+            } else {
+                renderTableHead('attribution-head', [
+                    { label: 'Ticker', align: 'text-left' },
+                    { label: 'Sector', align: 'text-left' },
+                    { label: 'Realized', align: 'text-right' },
+                    { label: 'Unrealized', align: 'text-right' },
+                    { label: 'Total', align: 'text-right' },
+                ]);
+                rows = attribution.top_tickers || [];
+            }
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-slate-500 italic">No attribution rows.</td></tr>';
+                return;
+            }
+
+            if (attributionView === 'sectors') {
+                tbody.innerHTML = rows.map((row) => `
+                    <tr class="hover:bg-white/5">
+                        <td class="px-2 py-3 font-black text-slate-200">${row.sector || 'Unknown'}</td>
+                        <td class="px-2 py-3 text-right font-mono ${pnlClass(row.realized_pnl)}">${formatCurrency(row.realized_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono ${pnlClass(row.unrealized_pnl)}">${formatCurrency(row.unrealized_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono font-bold ${pnlClass(row.total_pnl)}">${formatCurrency(row.total_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono">${formatPercent(row.weight || 0)}</td>
+                    </tr>
+                `).join('');
+                return;
+            }
+
+            if (attributionView === 'strategies') {
+                tbody.innerHTML = rows.map((row) => `
+                    <tr class="hover:bg-white/5">
+                        <td class="px-2 py-3 font-black text-slate-200">${row.strategy || 'Unassigned'}</td>
+                        <td class="px-2 py-3 text-right font-mono ${pnlClass(row.realized_pnl)}">${formatCurrency(row.realized_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono ${pnlClass(row.unrealized_pnl)}">${formatCurrency(row.unrealized_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono font-bold ${pnlClass(row.total_pnl)}">${formatCurrency(row.total_pnl)}</td>
+                        <td class="px-2 py-3 text-right font-mono">${formatCurrency(row.market_value)}</td>
+                    </tr>
+                `).join('');
+                return;
+            }
+
+            tbody.innerHTML = rows.map((row) => `
+                <tr class="hover:bg-white/5">
+                    <td class="px-2 py-3 font-black text-slate-200">${row.ticker || '--'}</td>
+                    <td class="px-2 py-3 text-slate-400">${row.sector || 'Unknown'}</td>
+                    <td class="px-2 py-3 text-right font-mono ${pnlClass(row.realized_pnl)}">${formatCurrency(row.realized_pnl)}</td>
+                    <td class="px-2 py-3 text-right font-mono ${pnlClass(row.unrealized_pnl)}">${formatCurrency(row.unrealized_pnl)}</td>
+                    <td class="px-2 py-3 text-right font-mono font-bold ${pnlClass(row.total_pnl)}">${formatCurrency(row.total_pnl)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBacktestPanel() {
+            const metaEl = document.getElementById('backtest-meta');
+            const sharpeEl = document.getElementById('backtest-sharpe');
+            const ddEl = document.getElementById('backtest-dd');
+            const tbody = document.getElementById('backtest-list');
+            const backtest = currentSignal?.backtest;
+
+            if (!backtest || !backtest.base_metrics) {
+                metaEl.innerText = 'Waiting for backtest snapshot...';
+                sharpeEl.innerText = '0.00';
+                ddEl.innerText = '0%';
+                tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-slate-500 italic">No backtest robustness snapshot synced.</td></tr>';
+                return;
+            }
+
+            const base = backtest.base_metrics;
+            metaEl.innerText = `${base.start_date || '--'} to ${base.end_date || '--'} | Annual ${formatPercent(base.annualized_return || 0)} | Win ${formatPercent(base.win_rate || 0)}`;
+            sharpeEl.innerText = (+base.sharpe || 0).toFixed(2);
+            ddEl.innerText = formatPercent(base.max_drawdown || 0);
+            renderSegmentedButtons('backtest-view', backtestView, ['base', 'splits', 'stress']);
+
+            let rows = [];
+            if (backtestView === 'splits') {
+                renderTableHead('backtest-head', [
+                    { label: 'Sample', align: 'text-left' },
+                    { label: 'Total', align: 'text-right' },
+                    { label: 'Annual', align: 'text-right' },
+                    { label: 'Sharpe', align: 'text-right' },
+                    { label: 'Max DD', align: 'text-right' },
+                ]);
+                rows = backtest.sample_splits || [];
+            } else if (backtestView === 'stress') {
+                renderTableHead('backtest-head', [
+                    { label: 'Scenario', align: 'text-left' },
+                    { label: 'Total', align: 'text-right' },
+                    { label: 'Annual', align: 'text-right' },
+                    { label: 'Sharpe', align: 'text-right' },
+                    { label: 'Max DD', align: 'text-right' },
+                ]);
+                rows = backtest.stress_tests || [];
+            } else {
+                renderTableHead('backtest-head', [
+                    { label: 'Metric', align: 'text-left' },
+                    { label: 'Value', align: 'text-right' },
+                ]);
+                rows = [
+                    { metric: 'Total Return', value: formatPercent(base.total_return || 0) },
+                    { metric: 'Annualized Return', value: formatPercent(base.annualized_return || 0) },
+                    { metric: 'Volatility', value: formatPercent(base.volatility || 0) },
+                    { metric: 'Sharpe', value: (+base.sharpe || 0).toFixed(2) },
+                    { metric: 'Max Drawdown', value: formatPercent(base.max_drawdown || 0) },
+                    { metric: 'Avg Turnover', value: formatPercent(base.avg_turnover || 0) },
+                    { metric: 'Avg Period Cost', value: formatPercent(base.avg_period_cost || 0, 2) },
+                    { metric: 'Win Rate', value: formatPercent(base.win_rate || 0) },
+                ];
+            }
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-slate-500 italic">No stress test rows.</td></tr>';
+                return;
+            }
+
+            if (backtestView === 'base') {
+                tbody.innerHTML = rows.map((row) => `
+                    <tr class="hover:bg-white/5">
+                        <td class="px-2 py-3 font-black text-slate-200">${row.metric}</td>
+                        <td class="px-2 py-3 text-right font-mono">${row.value}</td>
+                    </tr>
+                `).join('');
+                return;
+            }
+
+            tbody.innerHTML = rows.map((row) => `
+                <tr class="hover:bg-white/5">
+                    <td class="px-2 py-3 font-black text-slate-200">${row.sample || row.scenario || '--'}</td>
+                    <td class="px-2 py-3 text-right font-mono">${formatPercent(row.total_return || 0)}</td>
+                    <td class="px-2 py-3 text-right font-mono">${formatPercent(row.annualized_return || 0)}</td>
+                    <td class="px-2 py-3 text-right font-mono">${(+row.sharpe || 0).toFixed(2)}</td>
+                    <td class="px-2 py-3 text-right font-mono text-rose-400">${formatPercent(row.max_drawdown || 0)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function showTooltip(e, stock) {
+            const tooltip = document.getElementById('stock-tooltip');
+            currentSignalNews = stock.news || [];
+            document.getElementById('tooltip-ticker').innerText = stock.ticker;
+            document.getElementById('tooltip-content').innerHTML = `
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-800/50 rounded p-2"><span class="text-slate-500">Score</span><br><span class="font-bold ${stock.score > 2 ? 'text-emerald-400' : 'text-slate-300'}">${stock.score}</span></div>
+                    <div class="bg-slate-800/50 rounded p-2"><span class="text-slate-500">ATR</span><br><span class="font-bold">${stock.atr || 0}</span></div>
+                    <div class="bg-slate-800/50 rounded p-2"><span class="text-slate-500">R40</span><br><span class="font-bold">${stock.r40 || 0}</span></div>
+                    <div class="bg-slate-800/50 rounded p-2"><span class="text-slate-500">R&D</span><br><span class="font-bold">${stock.rd || 0}</span></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Signal: <span class="text-emerald-400 font-mono">$${stock.signal_price || 0}</span></p>
+            `;
+            let advice = "";
+            if (stock.score > 2.5 && stock.momentum > 0.2) advice = "Strong buy. High score + momentum aligned.";
+            else if (stock.score > 2.0) advice = "Good pick. Accumulate on dips near signal.";
+            else advice = "Acceptable. Monitor closely.";
+            document.getElementById('tooltip-advice').innerText = advice;
+
+            const rect = e.target.closest('tr').getBoundingClientRect();
+            tooltip.style.top = Math.max(0, rect.top) + 'px';
+            tooltip.style.left = Math.max(0, rect.left - 10) + 'px';
+            tooltip.classList.remove('hidden');
+            tooltip.classList.add('show');
+        }
+
+        function hideTooltip() {
+            const tooltip = document.getElementById('stock-tooltip');
+            tooltip.classList.add('hidden');
+            tooltip.classList.remove('show');
+        }
+
+        function closeTooltip() {
+            hideTooltip();
+        }
+
+        function checkHighCorrelation(ticker, signal) {
+            const corrData = signal?.correlation_data || {};
+            const highCorrPairs = corrData.high_corr_pairs || [];
+            return highCorrPairs.some(p => p[0] === ticker || p[1] === ticker);
+        }
+
+        function getSectorFromMap(ticker) {
+            const sectorMap = {
+                'TSM': 'Semiconductors', 'AMD': 'Semiconductors', 'NVDA': 'Semiconductors',
+                'MRVL': 'Semiconductors', 'INTC': 'Semiconductors', 'QCOM': 'Semiconductors',
+                'PLTR': 'Software/AI', 'COHR': 'Software/AI',
+                'MSFT': 'Software', 'GOOGL': 'Software', 'META': 'Software', 'GOOG': 'Software',
+                'AAPL': 'Hardware', 'AMZN': 'E-commerce'
+            };
+            return sectorMap[ticker] || 'Technology';
+        }
+
+        function renderStockList() {
+            if (!currentSignal) return;
+            const list = activeTab === 'tech' ? currentSignal.tech_picks : currentSignal.power_picks;
+            const tbody = document.getElementById('stock-list');
+            tbody.innerHTML = '';
+
+            list.forEach((s) => {
+                const daysUntil = s.days_until_earnings;
+                const hasEarningsSoon = daysUntil !== null && daysUntil <= 7;
+                const earningsClass = hasEarningsSoon ? (daysUntil <= 3 ? 'blink-earnings' : 'text-amber-400') : 'text-slate-500';
+                const earningsBadge = hasEarningsSoon ? `<span class="ml-2 px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-[10px] font-bold">${daysUntil}d</span>` : '';
+                const iconType = hasEarningsSoon ? 'bell' : 'bell-off';
+                
+                const displayAtr = s.atr && s.atr > 0 ? s.atr.toFixed(2) : 'N/A';
+                const displayR40 = s.r40 !== undefined ? s.r40.toFixed(2) : '0.00';
+                const displayMom = s.momentum !== undefined ? s.momentum.toFixed(2) : '0.00';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-white/5 cursor-pointer" onclick="showTooltip(event, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
+                        <td class="px-3 py-4">
+                            <div class="flex items-center">
+                                <span class="text-xl font-black ${activeTab === 'tech' ? 'text-blue-400' : 'text-orange-400'}">${s.ticker}</span>
+                                <button onclick="event.stopPropagation(); ${hasEarningsSoon ? `openEarningsWarning('${s.ticker}', '${s.earnings_date}', ${daysUntil}, ${s.avg_volatility})` : `openNewsSidebar('${s.ticker}', ${JSON.stringify(s.news || [])})`}" class="ml-3 ${earningsClass} hover:text-amber-300">
+                                    <i data-lucide="${iconType}" class="w-5 h-5"></i>
+                                </button>
+                                ${earningsBadge}
+                            </div>
+                        </td>
+                        <td class="px-3 py-4 text-right font-mono text-lg">$${(s.price || 0).toFixed(2)}</td>
+                        <td class="px-3 py-4 text-right text-lg font-black">${s.score}</td>
+                        <td class="px-3 py-4 text-right font-mono text-slate-400 hidden md:table-cell">R40:${displayR40} Mom:${displayMom}</td>
+                        <td class="px-3 py-4 text-right font-mono text-amber-400 font-bold text-lg">${displayAtr}</td>
+                        <td class="px-3 py-4 text-right"><span class="px-3 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg font-mono text-sm font-bold">$${s.signal_price || 0}</span></td>
+                        <td class="px-3 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <span class="px-3 py-2 ${s.score > 2.5 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'} rounded-lg text-[10px] font-bold uppercase">${s.score > 2.5 ? 'Buy' : 'Hold'}</span>
+                                <button onclick="event.stopPropagation(); openNewsSidebar('${s.ticker}', ${JSON.stringify(s.news || [])})" class="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-[10px] font-bold" title="News">
+                                    <i data-lucide="newspaper" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+            lucide.createIcons();
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            const tBtn = document.getElementById('tab-tech'), pBtn = document.getElementById('tab-power');
+            if (tab === 'tech') {
+                tBtn.className = "flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 border-b-4 border-blue-500 bg-blue-500/5 text-blue-400";
+                pBtn.className = "flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 text-slate-500 hover:bg-slate-800/30";
+            } else {
+                pBtn.className = "flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 border-b-4 border-orange-500 bg-orange-500/5 text-orange-400";
+                tBtn.className = "flex-1 py-6 md:py-10 px-4 flex items-center justify-center gap-3 text-slate-500 hover:bg-slate-800/30";
+            }
+            renderStockList();
+        }
+
+        document.addEventListener('click', (e) => { if (!e.target.closest('#stock-tooltip') && !e.target.closest('[onclick*="showTooltip"]')) hideTooltip(); });
+        setInterval(syncLivePrices, 30000);
+        startSync();
+    </script>
+</body>
+</html>

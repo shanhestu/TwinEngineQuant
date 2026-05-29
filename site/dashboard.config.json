@@ -1,0 +1,20 @@
+{
+  "activeMode": "hosted",
+  "dataSources": {
+    "local": {
+      "label": "LOCAL",
+      "signalCorePath": "./results/last_core_payload.json",
+      "signalEnrichPath": "./results/last_enrichment_payload.json",
+      "historySnapshotPath": "./results/last_history_snapshot.json"
+    },
+    "hosted": {
+      "label": "HOSTED",
+      "signalCorePath": "./data/last_core_payload.json",
+      "signalEnrichPath": "./data/last_enrichment_payload.json",
+      "historySnapshotPath": "./data/last_history_snapshot.json"
+    },
+    "firebase": {
+      "label": "FIREBASE"
+    }
+  }
+}
