@@ -468,7 +468,13 @@
         if (!resp.ok) return null;
 
         const raw = await resp.text();
-        const normalized = raw.replace(/^\uFEFF/, '').trim();
+        const normalized = raw
+            .replace(/^\uFEFF/, '')
+            .replace(/\bNaN\b/g, 'null')
+            .replace(/\bInfinity\b/g, 'null')
+            .replace(/\b-Infinity\b/g, 'null')
+            .trim();
+
         return JSON.parse(normalized);
     } catch (e) {
         console.warn('JSON load failed:', path, e);
