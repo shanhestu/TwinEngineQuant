@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "date": "2026-05-30",
+  "updated_at": "2026-05-30 09:19",
+  "market_regime": "BEAR",
+  "vix": 16.0,
+  "us10y": 4.35,
+  "spy": 756.48,
+  "total_value": 6222.15,
+  "stock_count": 5
+}

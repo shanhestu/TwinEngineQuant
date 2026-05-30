@@ -292,6 +292,57 @@
             </div>
         </div>
 
+        <div class="glass-card rounded-2xl p-4 md:p-5 mb-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Daily Execution</h3>
+                    <p id="execution-meta" class="text-xs text-slate-400 mt-1">Waiting for synced execution checklist...</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Orders</p>
+                        <p id="execution-orders" class="font-black text-slate-200">0</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Sell First</p>
+                        <p id="execution-sell" class="font-black text-rose-400">$0</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Buy After</p>
+                        <p id="execution-buy" class="font-black text-emerald-400">$0</p>
+                    </div>
+                    <div class="px-3 py-2 bg-slate-800/50 rounded-xl text-right">
+                        <p class="text-[8px] text-slate-500 uppercase">Net Cash</p>
+                        <p id="execution-cash" class="font-black text-blue-400">$0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div class="xl:col-span-1 bg-slate-900/40 rounded-2xl p-4 border border-slate-800/40">
+                    <p class="text-[8px] text-slate-500 uppercase tracking-widest mb-3">Preflight Checks</p>
+                    <ul id="execution-preflight" class="space-y-2 text-xs text-slate-300">
+                        <li class="text-slate-500 italic">Waiting for checklist preflight...</li>
+                    </ul>
+                </div>
+                <div class="xl:col-span-2 overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="text-[8px] text-slate-600 uppercase font-black">
+                                <th class="px-2 py-2 text-left">Seq</th>
+                                <th class="px-2 py-2 text-left">Action</th>
+                                <th class="px-2 py-2 text-left">Ticker</th>
+                                <th class="px-2 py-2 text-right">Shares</th>
+                                <th class="px-2 py-2 text-right">Price</th>
+                                <th class="px-2 py-2 text-right">Value</th>
+                                <th class="px-2 py-2 text-left">Instruction</th>
+                            </tr>
+                        </thead>
+                        <tbody id="execution-list" class="divide-y divide-slate-800/20"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-6">
             <div class="glass-card rounded-2xl p-4 md:p-5">
                 <div class="flex justify-between items-start gap-3 mb-4">
@@ -463,22 +514,20 @@
         }
 
         async function tryFetchJson(path) {
-    try {
-        const resp = await fetch(path, { cache: 'no-store' });
-        if (!resp.ok) return null;
-
-        const raw = await resp.text();
-        const normalized = raw
-            .replace(/^\uFEFF/, '')
-            .replace(/\bNaN\b/g, 'null')
-            .replace(/\bInfinity\b/g, 'null')
-            .replace(/\b-Infinity\b/g, 'null')
-            .trim();
-
-        return JSON.parse(normalized);
-    } catch (e) {
-        console.warn('JSON load failed:', path, e);
-        return null;
+            try {
+                const resp = await fetch(path, { cache: 'no-store' });
+                if (!resp.ok) return null;
+                const raw = await resp.text();
+                const normalized = raw
+                    .replace(/^\uFEFF/, '')
+                    .replace(/\bNaN\b/g, 'null')
+                    .replace(/\bInfinity\b/g, 'null')
+                    .replace(/\b-Infinity\b/g, 'null')
+                    .trim();
+                return JSON.parse(normalized);
+            } catch (e) {
+                console.warn('JSON load failed:', path, e);
+                return null;
             }
         }
 
@@ -1119,6 +1168,7 @@
                 iconBox.className = "p-3 rounded-xl bg-rose-500 text-white";
             }
             renderRebalancePanel();
+            renderExecutionChecklistPanel();
             renderAttributionPanel();
             renderBacktestPanel();
             lucide.createIcons();
@@ -1175,6 +1225,67 @@
                         <td class="px-2 py-3 text-right font-mono">$${(row.current_price || 0).toFixed(2)}</td>
                         <td class="px-2 py-3 text-right font-mono">$${(row.phase_order_value || 0).toFixed(2)}</td>
                         <td class="px-2 py-3 text-slate-400">${row.action_reason || '--'}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function renderExecutionChecklistPanel() {
+            const metaEl = document.getElementById('execution-meta');
+            const ordersEl = document.getElementById('execution-orders');
+            const sellEl = document.getElementById('execution-sell');
+            const buyEl = document.getElementById('execution-buy');
+            const cashEl = document.getElementById('execution-cash');
+            const preflightEl = document.getElementById('execution-preflight');
+            const tbody = document.getElementById('execution-list');
+            const checklist = currentSignal?.execution_checklist;
+
+            if (!checklist) {
+                metaEl.innerText = 'Waiting for synced execution checklist...';
+                ordersEl.innerText = '0';
+                sellEl.innerText = '$0';
+                buyEl.innerText = '$0';
+                cashEl.innerText = '$0';
+                preflightEl.innerHTML = '<li class="text-slate-500 italic">No checklist synced.</li>';
+                tbody.innerHTML = '<tr><td colspan="7" class="px-2 py-4 text-slate-500 italic">No execution checklist rows.</td></tr>';
+                return;
+            }
+
+            metaEl.innerText = `Signal ${checklist.signal_date} | ${checklist.market_regime} | actionable ${checklist.actionable_count || 0}`;
+            ordersEl.innerText = String(checklist.actionable_count || 0);
+            sellEl.innerText = '$' + (checklist.phase_sell_value || 0).toFixed(0);
+            buyEl.innerText = '$' + (checklist.phase_buy_value || 0).toFixed(0);
+            cashEl.innerText = '$' + (checklist.phase_net_cash_raise || 0).toFixed(0);
+
+            const preflightChecks = checklist.preflight_checks || [];
+            preflightEl.innerHTML = preflightChecks.length
+                ? preflightChecks.map((item) => `<li class="flex items-start gap-2"><span class="mt-[2px] text-blue-400">•</span><span>${item}</span></li>`).join('')
+                : '<li class="text-slate-500 italic">No preflight checks.</li>';
+
+            const rows = [
+                ...(checklist.orders || []),
+                ...((checklist.monitor_only || []).slice(0, 4)),
+            ];
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-2 py-4 text-slate-500 italic">No execution checklist rows.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map((row) => {
+                const actionClass =
+                    row.order_action === 'BUY'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : row.order_action === 'SELL'
+                        ? 'bg-rose-500/20 text-rose-400'
+                        : 'bg-slate-700 text-slate-300';
+                return `
+                    <tr class="hover:bg-white/5">
+                        <td class="px-2 py-3 font-mono text-slate-400">${row.sequence || '--'}</td>
+                        <td class="px-2 py-3"><span class="px-2 py-1 rounded-lg text-[10px] font-bold ${actionClass}">${row.order_action || 'HOLD'}</span></td>
+                        <td class="px-2 py-3 font-black ${row.order_action === 'BUY' ? 'text-blue-400' : 'text-slate-200'}">${row.ticker || '--'}</td>
+                        <td class="px-2 py-3 text-right font-mono">${row.order_shares || 0}</td>
+                        <td class="px-2 py-3 text-right font-mono">$${(row.current_price || 0).toFixed(2)}</td>
+                        <td class="px-2 py-3 text-right font-mono">$${(row.est_value || 0).toFixed(2)}</td>
+                        <td class="px-2 py-3 text-slate-400">${row.instruction || row.execution_notes || '--'}</td>
                     </tr>`;
             }).join('');
         }
